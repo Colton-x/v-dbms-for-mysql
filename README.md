@@ -1,5 +1,5 @@
 # v-dbms-for-mysql
-mysql管理工具
+mysql管理工具（功能尚未完善,正在开发中....）
 前端采用 vue + elementUI
 
 运行步骤：
