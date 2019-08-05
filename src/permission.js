@@ -5,6 +5,7 @@ import NProgress from 'nprogress' // progress bar
 import 'nprogress/nprogress.css' // progress bar style
 import { getToken } from '@/utils/auth' // get token from cookie
 import getPageTitle from '@/utils/get-page-title'
+import { getDbs } from '@/api/table'
 
 import axios from 'axios'
 import Layout from '@/layout' //Layout 是架构组件，不在后台返回，在文件里单独引入
@@ -64,14 +65,28 @@ router.beforeEach(async(to, from, next) => {
     }
   }
 
-  if (!getRouter) {//不加这个判断，路由会陷入死循环
+  if (!getRouter&&hasToken) {//不加这个判断，路由会陷入死循环
     if (!getObjArr('router')) {
       // console.log('getObjArr')
-      axios.get('http://localhost:8080/dbms.php?ac=getdbs').then(res => {
-        getRouter = res.data.data.router//后台拿到路由
-        saveObjArr('router', getRouter) //存储路由到localStorage
-        console.log(getRouter)
-        routerGo(to, next)//执行路由跳转方法
+      // axios.get('http://localhost:8080/dbms.php?ac=getdbs').then(res => {
+      //   getRouter = res.data.data.router//后台拿到路由
+      //   saveObjArr('router', getRouter) //存储路由到localStorage
+      //   console.log(getRouter)
+      //   routerGo(to, next)//执行路由跳转方法
+      // })
+      getDbs().then(res => {
+        console.log(res.data)
+        if (res.code == 20000) {
+          getRouter = res.data.router//后台拿到路由
+          saveObjArr('router', getRouter) //存储路由到localStorage
+          console.log(getRouter)
+          routerGo(to, next)//执行路由跳转方法
+          // vm.$message.success(res.message)
+        } else {
+          // vm.$message.error(res.message)
+        }
+      }).catch(function(error) {
+        console.log(error)
       })
     } else {//从localStorage拿到了路由
       getRouter = getObjArr('router')//拿到路由

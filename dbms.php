@@ -1,5 +1,5 @@
 <?php
-error_reporting(0);
+// error_reporting(0);
 header('Access-Control-Allow-Origin:*'); //允许所有来源访问
 header('Access-Control-Allow-Method:POST,GET,OPTIONS'); //允许访问的方式
 header('Access-Control-Allow-Headers: x-requested-with,x-token,Content-Type');
@@ -15,7 +15,12 @@ function login()
     $post = file_get_contents('php://input');
     $post = json_decode($post,true);
     $token = md5($post['host'].$post['username'].$post['password']);
-
+    $data = [
+        'host' => $post['host'],
+        'username' => $post['username'],
+        'password' => $post['password'],
+    ];
+    setDbConfig($token , $data);
     // return json(['code'=>60204,'message'=>'连接失败']);
     return json(['code' => 20000, 'data' =>['token'=>$token], 'upost'=>$post]);
 }
@@ -106,11 +111,7 @@ function getDbs()
 
     $router = json_decode($json, true);
 
-    $DB                = new Db;
-    $DB->database_user = 'root';
-    $DB->database_pass = '';
-    $DB->database_host = '127.0.0.1';
-    $DB->connect();
+    $DB = getDbConfig($_SERVER['HTTP_X_TOKEN']);
 
     $res  = $DB->fetchAll("SHOW DATABASES");
     $menu = [];
@@ -145,17 +146,12 @@ function getDbs()
     }
     $arr = array_merge($router, $menu);
     cache('menu', $arr);
-    return json(['code' => 0, 'data' => ['router' => $arr], 'msg' => 'ok']);
+    return json(['code' => 20000, 'data' => ['router' => $arr], 'msg' => 'ok']);
 }
 
 function getTables()
 {
-    $DB                = new Db;
-    $DB->database_name = $_GET['db'];
-    $DB->database_user = 'root';
-    $DB->database_pass = '';
-    $DB->database_host = '127.0.0.1';
-    $DB->connect();
+    $DB = getDbConfig($_SERVER['HTTP_X_TOKEN'],$_GET['db']);
 
     $db_name     = $_GET['db'];
     $table_name  = $_GET['tb'];
@@ -193,12 +189,7 @@ function getStart($page = 1, $pageSize = 10)
 
 function getStructure()
 {
-    $DB                = new Db;
-    $DB->database_name = $_GET['db'];
-    $DB->database_user = 'root';
-    $DB->database_pass = '';
-    $DB->database_host = '127.0.0.1';
-    $DB->connect();
+    $DB = getDbConfig($_SERVER['HTTP_X_TOKEN'],$_GET['db']);
 
     $db_name    = $_GET['db'];
     $table_name = $_GET['tb'];
@@ -212,12 +203,7 @@ function getStructure()
 
 function addField()
 {
-    $DB                = new Db;
-    $DB->database_name = $_GET['db'];
-    $DB->database_user = 'root';
-    $DB->database_pass = '';
-    $DB->database_host = '127.0.0.1';
-    $DB->connect();
+    $DB = getDbConfig($_SERVER['HTTP_X_TOKEN'],$_GET['db']);
     // alter table   table1 add id int unsigned not Null auto_increment primary key
     $db_name        = $_GET['db'];
     $table_name     = $_GET['tb'];
@@ -237,12 +223,7 @@ function addField()
 
 function delField()
 {
-    $DB                = new Db;
-    $DB->database_name = $_GET['db'];
-    $DB->database_user = 'root';
-    $DB->database_pass = '';
-    $DB->database_host = '127.0.0.1';
-    $DB->connect();
+    $DB = getDbConfig($_SERVER['HTTP_X_TOKEN'],$_GET['db']);
     $db_name    = $_GET['db'];
     $table_name = $_GET['tb'];
     $fieldName  = $_GET['fieldName'];
@@ -255,12 +236,7 @@ function delField()
 
 function addTable()
 {
-    $DB                = new Db;
-    $DB->database_name = $_GET['db'];
-    $DB->database_user = 'root';
-    $DB->database_pass = '';
-    $DB->database_host = '127.0.0.1';
-    $DB->connect();
+    $DB = getDbConfig($_SERVER['HTTP_X_TOKEN'],$_GET['db']);
     $db_name    = $_GET['db'];
     $table_name = $_GET['tb'];
 
@@ -356,6 +332,31 @@ function cache($name, $data = '')
     file_put_contents($name . '.txt', $str);
 }
 
+function getDbConfig($token , $dbName = '')
+{
+    $DB                = new Db;
+    $dbConfig = cache('dbConfig-'.$token);
+    if (!empty($dbName)) {
+        $DB->database_name = $dbName;
+    }
+    $DB->database_host = $dbConfig['host'];
+    $DB->database_username = $dbConfig['username'];
+    $DB->database_password = $dbConfig['password'];
+    $DB->connect();
+    return $DB;
+}
+
+function setDbConfig($token , $data)
+{
+    cache('dbConfig-'.$token,$data);
+}
+
+function dumpDbConfig()
+{
+    echo ('<pre>');
+    $dbConfig = cache('dbConfig-'.$_GET['token']);
+    var_dump($dbConfig);
+}
 /************** DbClass **************/
 
 class Db
@@ -364,8 +365,8 @@ class Db
     private $error;
 
     public $database_name;
-    public $database_user;
-    public $database_pass;
+    public $database_username;
+    public $database_password;
     public $database_host;
     // function __construct() {
     //   $this->connect();
@@ -378,8 +379,8 @@ class Db
     {
         if (!$this->pdo) {
             $dsn      = 'mysql:dbname=' . $this->database_name . ';host=' . $this->database_host . ';charset=utf8';
-            $user     = $this->database_user;
-            $password = $this->database_pass;
+            $user     = $this->database_username;
+            $password = $this->database_password;
             try {
                 $this->pdo = new PDO($dsn, $user, $password, array(PDO::ATTR_PERSISTENT => true));
                 return true;
